@@ -1,0 +1,388 @@
+
+<meta name='viewport' content='width=device-width, initial-scale=1'/><meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Excel Data Extractor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Open+Sans:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            font-size: 0.6rem; /* Reduced font size to 60% */
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        h2 {
+            text-align: center;
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 600;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            table-layout: auto;
+        }
+        th, td {
+            padding: 15px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: #fff;
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 500;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tfoot {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        .percentage-cell {
+            font-weight: bold;
+        }
+        .green {
+            color: green;
+        }
+        .red {
+            color: red;
+        }
+        .neutral {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Listens 2.0 Report</h2>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" />
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Combined Rating (OSAT, Google, Aggregator)</th>
+                    <th>Order Type</th>
+                    <th>Service Mode</th>
+                    <th>Store_ID</th>
+                    <th>Store_Name</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <h2>Store-wise Analytics</h2>
+        <table id="analyticsTable">
+            <thead>
+                <tr>
+                    <th>Store ID</th>
+                    <th>Store Name</th>
+                    <th>Total Number of 5 Ratings</th>
+                    <th>Total Number of All Ratings</th>
+                    <th>OSAT %</th>
+                    <th>Total Number of 5 Ratings (Dine In)</th>
+                    <th>Total Number of All Ratings (Dine In)</th>
+                    <th>Dine In %</th>
+                    <th>Total Number of 5 Ratings (Take Away)</th>
+                    <th>Total Number of All Ratings (Take Away)</th>
+                    <th>Take Away %</th>
+                    <th>Total Number of 5 Ratings (Delivery)</th>
+                    <th>Total Number of All Ratings (Delivery)</th>
+                    <th>Delivery %</th>
+                </tr>
+            </thead>
+            <tbody id="analyticsBody"></tbody>
+            <tfoot id="overallAnalytics"></tfoot>
+        </table>
+        <h2>Store-wise Dinner Analytics (19:00:00 - 23:00:00)</h2>
+        <table id="dinnerAnalyticsTable">
+            <thead>
+                <tr>
+                    <th>Store ID</th>
+                    <th>Store Name</th>
+                    <th>Total Number of 5 Ratings</th>
+                    <th>Total Number of All Ratings</th>
+                    <th>OSAT %</th>
+                    <th>Total Number of 5 Ratings (Dine In)</th>
+                    <th>Total Number of All Ratings (Dine In)</th>
+                    <th>Dine In %</th>
+                    <th>Total Number of 5 Ratings (Take Away)</th>
+                    <th>Total Number of All Ratings (Take Away)</th>
+                    <th>Take Away %</th>
+                    <th>Total Number of 5 Ratings (Delivery)</th>
+                    <th>Total Number of All Ratings (Delivery)</th>
+                    <th>Delivery %</th>
+                </tr>
+            </thead>
+            <tbody id="dinnerAnalyticsBody"></tbody>
+            <tfoot id="overallDinnerAnalytics"></tfoot>
+        </table>
+        <p style="text-align: center; margin-top: 20px; font-size: 0.8rem; color: #555;">Developed by Praveen Kumar B J</p>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+<script>
+    document.getElementById('fileInput').addEventListener('change', handleFile);
+
+    function handleFile(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            // Identify column indexes for specific headers
+            const headers = jsonData[0];
+            const dateIndex = headers.indexOf("Date Range (+05:30 GMT)");
+            const ratingIndex = headers.indexOf("Combined Rating (OSAT, Google, Aggregator)");
+            const orderTypeIndex = headers.indexOf("Order Type");
+            const serviceModeIndex = headers.indexOf("Service Mode");
+            const storeIdIndex = headers.indexOf("Store_ID");
+            const storeNameIndex = headers.indexOf("Store_Name");
+
+            const tableBody = document.getElementById("tableBody");
+            tableBody.innerHTML = ""; // Clear previous content
+
+            const analyticsData = {};
+            const dinnerAnalyticsData = {};
+
+            // Populate table and accumulate data for analytics
+            jsonData.slice(1).forEach(row => {
+                const tableRow = document.createElement("tr");
+
+                // Date and Time conversion
+                const dateCell = document.createElement("td");
+                const timeCell = document.createElement("td");
+                const serialDate = row[dateIndex];
+
+                let dateTime;
+                if (serialDate !== undefined) {
+                    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                    dateTime = new Date(excelEpoch.getTime() + serialDate * 86400 * 1000);
+
+                    dateCell.textContent = dateTime.getUTCFullYear() + "-" + 
+                                           String(dateTime.getUTCMonth() + 1).padStart(2, '0') + "-" +
+                                           String(dateTime.getUTCDate()).padStart(2, '0');
+                    
+                    timeCell.textContent = String(dateTime.getUTCHours()).padStart(2, '0') + ":" + 
+                                           String(dateTime.getUTCMinutes()).padStart(2, '0') + ":" +
+                                           String(dateTime.getUTCSeconds()).padStart(2, '0');
+                }
+                tableRow.appendChild(dateCell);
+                tableRow.appendChild(timeCell);
+
+                const storeId = row[storeIdIndex];
+                const storeName = row[storeNameIndex];
+                const rating = row[ratingIndex];
+                const serviceMode = row[serviceModeIndex];
+
+                [ratingIndex, orderTypeIndex, serviceModeIndex, storeIdIndex, storeNameIndex].forEach(index => {
+                    const cell = document.createElement("td");
+                    cell.textContent = row[index] !== undefined ? row[index] : "";
+                    tableRow.appendChild(cell);
+                });
+                tableBody.appendChild(tableRow);
+
+                if (!analyticsData[storeId]) {
+                    analyticsData[storeId] = {
+                        storeName: storeName,
+                        totalRatings: 0,
+                        total5Ratings: 0,
+                        dineInRatings: 0,
+                        dineIn5Ratings: 0,
+                        takeawayRatings: 0,
+                        takeaway5Ratings: 0,
+                        deliveryRatings: 0,
+                        delivery5Ratings: 0
+                    };
+                }
+
+                const storeData = analyticsData[storeId];
+                storeData.totalRatings++;
+                if (rating === 5) {
+                    storeData.total5Ratings++;
+                }
+
+                if (serviceMode === "Dine In") {
+                    storeData.dineInRatings++;
+                    if (rating === 5) {
+                        storeData.dineIn5Ratings++;
+                    }
+                } else if (serviceMode === "Take Away") {
+                    storeData.takeawayRatings++;
+                    if (rating === 5) {
+                        storeData.takeaway5Ratings++;
+                    }
+                } else if (serviceMode === "Delivery") {
+                    storeData.deliveryRatings++;
+                    if (rating === 5) {
+                        storeData.delivery5Ratings++;
+                    }
+                }
+
+                // Dinner analytics (19:00:00 - 23:00:00)
+                if (dateTime && dateTime.getUTCHours() >= 19 && dateTime.getUTCHours() < 23) {
+                    if (!dinnerAnalyticsData[storeId]) {
+                        dinnerAnalyticsData[storeId] = {
+                            storeName: storeName,
+                            totalRatings: 0,
+                            total5Ratings: 0,
+                            dineInRatings: 0,
+                            dineIn5Ratings: 0,
+                            takeawayRatings: 0,
+                            takeaway5Ratings: 0,
+                            deliveryRatings: 0,
+                            delivery5Ratings: 0
+                        };
+                    }
+
+                    const dinnerData = dinnerAnalyticsData[storeId];
+                    dinnerData.totalRatings++;
+                    if (rating === 5) {
+                        dinnerData.total5Ratings++;
+                    }
+
+                    if (serviceMode === "Dine In") {
+                        dinnerData.dineInRatings++;
+                        if (rating === 5) {
+                            dinnerData.dineIn5Ratings++;
+                        }
+                    } else if (serviceMode === "Take Away") {
+                        dinnerData.takeawayRatings++;
+                        if (rating === 5) {
+                            dinnerData.takeaway5Ratings++;
+                        }
+                    } else if (serviceMode === "Delivery") {
+                        dinnerData.deliveryRatings++;
+                        if (rating === 5) {
+                            dinnerData.delivery5Ratings++;
+                        }
+                    }
+                }
+            });
+
+            displayAnalytics(analyticsData, 'analyticsBody', 'overallAnalytics');
+            displayAnalytics(dinnerAnalyticsData, 'dinnerAnalyticsBody', 'overallDinnerAnalytics');
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    function displayAnalytics(analyticsData, tableBodyId, overallFooterId) {
+        const analyticsBody = document.getElementById(tableBodyId);
+        analyticsBody.innerHTML = "";
+
+        let overallData = {
+            totalRatings: 0,
+            total5Ratings: 0,
+            dineInRatings: 0,
+            dineIn5Ratings: 0,
+            takeawayRatings: 0,
+            takeaway5Ratings: 0,
+            deliveryRatings: 0,
+            delivery5Ratings: 0
+        };
+
+        Object.entries(analyticsData).forEach(([storeId, data]) => {
+            const tableRow = document.createElement("tr");
+
+            // Calculate percentages and add conditional coloring
+            const osatPercentage = Math.round((data.total5Ratings / data.totalRatings) * 100);
+            const dineInPercentage = Math.round((data.dineIn5Ratings / data.dineInRatings) * 100);
+            const takeawayPercentage = Math.round((data.takeaway5Ratings / data.takeawayRatings) * 100);
+            const deliveryPercentage = Math.round((data.delivery5Ratings / data.deliveryRatings) * 100);
+
+            const osatClass = getColorClass(osatPercentage);
+            const dineInClass = getColorClass(dineInPercentage);
+            const takeawayClass = getColorClass(takeawayPercentage);
+            const deliveryClass = getColorClass(deliveryPercentage);
+
+            [storeId, data.storeName, data.total5Ratings, data.totalRatings,
+             `<span class="percentage-cell ${osatClass}">${osatPercentage}%</span>`,
+             data.dineIn5Ratings, data.dineInRatings,
+             `<span class="percentage-cell ${dineInClass}">${dineInPercentage}%</span>`,
+             data.takeaway5Ratings, data.takeawayRatings,
+             `<span class="percentage-cell ${takeawayClass}">${takeawayPercentage}%</span>`,
+             data.delivery5Ratings, data.deliveryRatings,
+             `<span class="percentage-cell ${deliveryClass}">${deliveryPercentage}%</span>`
+            ].forEach(value => {
+                const cell = document.createElement("td");
+                cell.innerHTML = value;
+                tableRow.appendChild(cell);
+            });
+
+            analyticsBody.appendChild(tableRow);
+
+            // Accumulate overall data
+            overallData.totalRatings += data.totalRatings;
+            overallData.total5Ratings += data.total5Ratings;
+            overallData.dineInRatings += data.dineInRatings;
+            overallData.dineIn5Ratings += data.dineIn5Ratings;
+            overallData.takeawayRatings += data.takeawayRatings;
+            overallData.takeaway5Ratings += data.takeaway5Ratings;
+            overallData.deliveryRatings += data.deliveryRatings;
+            overallData.delivery5Ratings += data.delivery5Ratings;
+        });
+
+        displayOverallAnalytics(overallData, overallFooterId);
+    }
+
+    function getColorClass(percentage) {
+        if (percentage > 80) return 'green';
+        if (percentage < 80) return 'red';
+        return 'neutral';
+    }
+
+    function displayOverallAnalytics(overallData, overallFooterId) {
+        const overallFooter = document.getElementById(overallFooterId);
+        overallFooter.innerHTML = "";
+
+        const overallRow = document.createElement("tr");
+        const overallOSATPercentage = Math.round((overallData.total5Ratings / overallData.totalRatings) * 100) + "%";
+        const overallDineInPercentage = Math.round((overallData.dineIn5Ratings / overallData.dineInRatings) * 100) + "%";
+        const overallTakeawayPercentage = Math.round((overallData.takeaway5Ratings / overallData.takeawayRatings) * 100) + "%";
+        const overallDeliveryPercentage = Math.round((overallData.delivery5Ratings / overallData.deliveryRatings) * 100) + "%";
+
+        ["Overall", "", overallData.total5Ratings, overallData.totalRatings, overallOSATPercentage,
+         overallData.dineIn5Ratings, overallData.dineInRatings, overallDineInPercentage,
+         overallData.takeaway5Ratings, overallData.takeawayRatings, overallTakeawayPercentage,
+         overallData.delivery5Ratings, overallData.deliveryRatings, overallDeliveryPercentage].forEach(value => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            overallRow.appendChild(cell);
+        });
+
+        overallFooter.appendChild(overallRow);
+    }
+</script>
+
+</body>
+</html>
